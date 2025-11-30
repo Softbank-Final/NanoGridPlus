@@ -13,7 +13,7 @@ agent:
 
   # SQS 설정
   sqs:
-    queueUrl: https://sqs.ap-northeast-2.amazonaws.com/769213334367/nanogrid-task-queue
+    queueUrl: https://sqs.ap-northeast-2.amazonaws.com/YOUR_ACCOUNT/nanogrid-task-queue
     waitTimeSeconds: 20
     maxNumberOfMessages: 10
 

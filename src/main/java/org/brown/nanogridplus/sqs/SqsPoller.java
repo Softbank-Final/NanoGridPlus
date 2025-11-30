@@ -154,20 +154,24 @@ public class SqsPoller {
             // 파싱 불가능한 메시지는 삭제 (재시도 불필요)
             deleteMessage(queueUrl, receiptHandle);
 
-        } catch (java.nio.file.NoSuchFileException | java.io.FileNotFoundException e) {
-            log.error("[FAIL][S3] S3 파일이 존재하지 않습니다: {}", 
-                    taskMessage != null ? taskMessage.getS3Key() : "unknown", e);
-            // S3 파일 없음 - 메시지 삭제하지 않음 (재시도 가능)
-
         } catch (IllegalArgumentException e) {
             log.error("[FAIL][RUNTIME_NOT_SUPPORTED] 지원하지 않는 런타임: {}", 
                     taskMessage != null ? taskMessage.getRuntime() : "unknown", e);
             // 잘못된 런타임 - 메시지 삭제하지 않음 (DLQ로 이동)
 
         } catch (Exception e) {
-            log.error("[FAIL][DOCKER] Docker 실행 중 오류 발생: requestId={}", 
-                    taskMessage != null ? taskMessage.getRequestId() : "unknown", e);
-            // Docker 오류 - 메시지 삭제하지 않음 (재시도 가능)
+            // S3, Docker 등 모든 오류 처리
+            String errorType = "UNKNOWN";
+            if (e.getMessage() != null) {
+                if (e.getMessage().contains("NoSuchKey") || e.getMessage().contains("Not Found")) {
+                    errorType = "S3";
+                } else if (e.getMessage().contains("docker") || e.getMessage().contains("container")) {
+                    errorType = "DOCKER";
+                }
+            }
+            log.error("[FAIL][{}] 실행 중 오류 발생: requestId={}",
+                    errorType, taskMessage != null ? taskMessage.getRequestId() : "unknown", e);
+            // 메시지 삭제하지 않음 (재시도 가능)
 
         } finally {
             // MDC 정리

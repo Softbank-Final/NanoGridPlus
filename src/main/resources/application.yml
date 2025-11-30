@@ -1,0 +1,65 @@
+spring:
+  application:
+    name: NanoGridPlus
+
+# Server 설정
+server:
+  port: 8080
+
+# Agent 통합 설정
+agent:
+  # AWS 설정
+  aws:
+    region: ap-northeast-2
+
+  # SQS 설정
+  sqs:
+    queueUrl: https://sqs.ap-southeast-2.amazonaws.com/769213334367/nanogrid-task-queue
+    # ↑ AWS Console → SQS → 큐 선택 → Details → URL 복사
+    # YOUR_ACCOUNT를 실제 AWS 계정 ID로 변경
+    waitTimeSeconds: 20
+    maxNumberOfMessages: 10
+
+  # S3 설정
+  s3:
+    codeBucket: nanogrid-code-bucket
+    # ↑ 전역 고유한 버킷 이름으로 변경
+    # 예: nanogrid-code-bucket-20251130
+
+  # Docker 설정
+  docker:
+    pythonImage: python-base
+    cppImage: gcc-base
+    workDirRoot: /workspace-root
+    defaultTimeoutMs: 10000
+
+  # Warm Pool 설정
+  warmPool:
+    enabled: true
+    pythonSize: 2
+    cppSize: 1
+
+  # Polling 설정
+  polling:
+    enabled: true
+    fixedDelayMillis: 1000
+
+  # Redis 설정 (향후 사용)
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    password: ""
+    resultPrefix: "result:"
+
+  # 작업 디렉터리
+  taskBaseDir: /tmp/task
+
+# Logging 설정
+logging:
+  level:
+    org.brown.nanogridplus: INFO
+    com.github.dockerjava: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [requestId=%X{requestId}] %logger{36} - %msg%n"
+
+

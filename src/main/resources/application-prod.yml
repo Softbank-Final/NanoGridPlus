@@ -1,0 +1,56 @@
+# EC2 프로덕션 환경 설정
+# 사용법: java -jar app.jar --spring.profiles.active=prod
+
+spring:
+  profiles:
+    active: prod
+
+# Agent 통합 설정 (프로덕션)
+agent:
+  # AWS 설정
+  aws:
+    region: ap-northeast-2
+
+  # SQS 설정
+  sqs:
+    queueUrl: https://sqs.ap-northeast-2.amazonaws.com/769213334367/nanogrid-task-queue
+    waitTimeSeconds: 20
+    maxNumberOfMessages: 10
+
+  # S3 설정
+  s3:
+    codeBucket: nanogrid-code-bucket
+
+  # Docker 설정
+  docker:
+    pythonImage: python-base
+    cppImage: gcc-base
+    workDirRoot: /workspace-root
+    defaultTimeoutMs: 10000
+
+  # Warm Pool 설정
+  warmPool:
+    enabled: true
+    pythonSize: 2
+    cppSize: 1
+
+  # Polling 설정
+  polling:
+    enabled: true
+    fixedDelayMillis: 1000
+
+  # 작업 디렉터리
+  taskBaseDir: /tmp/task
+
+# Logging 설정
+logging:
+  level:
+    org.brown.nanogridplus: INFO
+    com.github.dockerjava: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [requestId=%X{requestId}] %logger{36} - %msg%n"
+  file:
+    name: /home/ec2-user/nanogrid-agent.log
+    max-size: 100MB
+    max-history: 7
+

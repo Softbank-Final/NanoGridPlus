@@ -55,7 +55,7 @@ public class DockerWarmPoolManager implements WarmPoolManager {
         log.info("========================================");
 
         // Python Pool 초기화
-        int pythonSize = agentConfig.getWarmPool().getPythonSize();
+        int pythonSize = agentProperties.getWarmPool().getPythonSize();
         log.info("Creating {} Python containers for Warm Pool", pythonSize);
         ConcurrentLinkedDeque<String> pythonPool = new ConcurrentLinkedDeque<>();
         for (int i = 0; i < pythonSize; i++) {
@@ -66,7 +66,7 @@ public class DockerWarmPoolManager implements WarmPoolManager {
         pool.put(RuntimeType.PYTHON, pythonPool);
 
         // C++ Pool 초기화
-        int cppSize = agentConfig.getWarmPool().getCppSize();
+        int cppSize = agentProperties.getWarmPool().getCppSize();
         log.info("Creating {} C++ containers for Warm Pool", cppSize);
         ConcurrentLinkedDeque<String> cppPool = new ConcurrentLinkedDeque<>();
         for (int i = 0; i < cppSize; i++) {

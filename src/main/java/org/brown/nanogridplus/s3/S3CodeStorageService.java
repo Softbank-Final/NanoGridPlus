@@ -71,7 +71,7 @@ public class S3CodeStorageService implements CodeStorageService {
     private String determineS3Bucket(TaskMessage taskMessage) {
         String bucket = taskMessage.getS3Bucket();
         if (bucket == null || bucket.trim().isEmpty()) {
-            bucket = agentProperties.getS3().getCodeBucketName();
+            bucket = agentProperties.getS3().getCodeBucket();
             log.debug("Using default S3 bucket from config: {}", bucket);
         }
         return bucket;
@@ -82,7 +82,7 @@ public class S3CodeStorageService implements CodeStorageService {
      * 경로: {taskBaseDir}/{requestId}
      */
     private Path createWorkingDirectory(String requestId) throws IOException {
-        String baseDir = agentConfig.getTaskBaseDir();
+        String baseDir = agentProperties.getTaskBaseDir();
         Path workingDir = Paths.get(baseDir, requestId);
 
         // 디렉터리가 이미 존재하면 삭제 후 재생성 (깨끗한 상태 보장)

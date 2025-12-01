@@ -15,16 +15,14 @@ agent:
   # SQS 설정
   sqs:
     queueUrl: https://sqs.ap-northeast-2.amazonaws.com/769213334367/nanogrid-task-queue
-    # ↑ AWS Console → SQS → 큐 선택 → Details → URL 복사
-    # YOUR_ACCOUNT를 실제 AWS 계정 ID로 변경
+    # ↑ B팀 제공 SQS 큐 URL (작업 메시지 수신용)
     waitTimeSeconds: 20
     maxNumberOfMessages: 10
 
   # S3 설정
   s3:
     codeBucket: nanogrid-code-bucket
-    # ↑ 전역 고유한 버킷 이름으로 변경
-    # 예: nanogrid-code-bucket-20251130
+    # ↑ 함수 코드 zip 파일이 저장된 S3 버킷
 
   # Docker 설정
   docker:

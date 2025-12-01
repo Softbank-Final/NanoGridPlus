@@ -14,7 +14,7 @@ agent:
 
   # SQS 설정
   sqs:
-    queueUrl: https://sqs.ap-southeast-2.amazonaws.com/769213334367/nanogrid-task-queue
+    queueUrl: https://sqs.ap-northeast-2.amazonaws.com/769213334367/nanogrid-task-queue
     # ↑ AWS Console → SQS → 큐 선택 → Details → URL 복사
     # YOUR_ACCOUNT를 실제 AWS 계정 ID로 변경
     waitTimeSeconds: 20
@@ -46,7 +46,7 @@ agent:
 
   # Redis 설정 (향후 사용)
   redis:
-    host: 127.0.0.1
+    host: nanogrid-redis.p29xhw.0001.apn2.cache.amazonaws.com
     port: 6379
     password: ""
     resultPrefix: "result:"

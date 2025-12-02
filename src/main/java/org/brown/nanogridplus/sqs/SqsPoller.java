@@ -7,6 +7,7 @@ import org.brown.nanogridplus.config.AgentProperties;
 import org.brown.nanogridplus.docker.DockerService;
 import org.brown.nanogridplus.model.ExecutionResult;
 import org.brown.nanogridplus.model.TaskMessage;
+import org.brown.nanogridplus.redis.RedisResultPublisher;
 import org.brown.nanogridplus.s3.CodeStorageService;
 import org.slf4j.MDC;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -41,6 +42,7 @@ public class SqsPoller {
     private final AgentProperties agentProperties;
     private final CodeStorageService codeStorageService;
     private final DockerService dockerService;
+    private final RedisResultPublisher redisResultPublisher;
 
     /**
      * 주기적으로 SQS 큐를 폴링
@@ -143,7 +145,15 @@ public class SqsPoller {
             log.debug("Stdout:\n{}", result.getStdout());
             log.debug("Stderr:\n{}", result.getStderr());
 
-            // TODO: Redis Publish (향후 단계)
+            // Redis Publish - B팀 Controller에게 결과 전송
+            try {
+                redisResultPublisher.publishResult(result);
+                log.info("✅ [REDIS] 실행 결과 전송 완료: requestId={}", taskMessage.getRequestId());
+            } catch (Exception redisEx) {
+                log.error("❌ [REDIS][FAIL] 결과 전송 실패 (메시지는 삭제됨): requestId={}",
+                         taskMessage.getRequestId(), redisEx);
+                // Redis 전송 실패해도 SQS 메시지는 삭제 (실행은 성공했으므로)
+            }
 
             // 정상 처리 완료 - 메시지 삭제
             deleteMessage(queueUrl, receiptHandle);

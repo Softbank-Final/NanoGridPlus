@@ -52,7 +52,7 @@ NanoGrid Plus Agent는 **EC2 기반 Serverless Function Worker**로, Control Pla
 
 ## 🎯 현재 구현 상태
 
-### ✅ 완료된 기능 (0~8단계)
+### ✅ 완료된 기능 (0~9단계)
 
 | 단계 | 기능 | 상태 |
 |------|------|------|
@@ -62,6 +62,7 @@ NanoGrid Plus Agent는 **EC2 기반 Serverless Function Worker**로, Control Pla
 | **4** | Warm Pool (Pause/Unpause) | ✅ |
 | **5~6** | Auto-Tuner (메모리 측정 + CloudWatch) | ✅ |
 | **7~8** | 최종 안정화 (MDC, 예외 처리, HealthCheck) | ✅ |
+| **9** | Redis Pub/Sub 통합 (B팀 Controller 연동) | ✅ |
 
 ### 📊 성능 지표 (실제 테스트 결과)
 
@@ -183,56 +184,59 @@ GET /status
 ### 현재 상태
 - ✅ SQS로부터 작업 메시지 수신
 - ✅ 함수 실행 완료
-- ⚠️ **결과 반환 방식 협의 필요**
+- ✅ **Redis Pub/Sub으로 결과 전송** (B팀 Controller 연동 완료)
 
-### 통합 옵션
+### 통합 완료!
 
-Control Plane 팀과 협의하여 다음 중 선택:
+NanoGrid Plus Agent는 B팀 Controller와 **Redis Pub/Sub**을 통해 연동됩니다:
 
-#### 옵션 1: Redis Publish/Subscribe (권장)
-```java
-// 실행 결과를 Redis에 Publish
-redisPublisher.publish("result:" + requestId, executionResult);
+```
+1. B팀 Controller가 SQS에 작업 메시지 전송
+2. Worker Agent가 SQS 메시지 수신 및 처리
+3. Worker Agent가 Redis `result:{requestId}` 채널에 결과 Publish
+4. B팀 Controller가 해당 채널을 구독하며 결과 대기 (25초 타임아웃)
+5. Controller가 결과를 받아 사용자에게 응답 반환
 ```
 
-#### 옵션 2: HTTP Callback
-```java
-// Control Plane API로 결과 전송
-restTemplate.post("https://control-plane-api/results", executionResult);
+### Redis 설정 (application.yml)
+
+```yaml
+agent:
+  redis:
+    host: nanogrid-redis.p29xhw.0001.apn2.cache.amazonaws.com
+    port: 6379
+    password: ""
+    resultPrefix: "result:"
 ```
 
-#### 옵션 3: DynamoDB 또는 Result SQS
-```java
-// 결과를 DynamoDB 테이블에 저장
-dynamoDbClient.putItem("nanogrid-results", executionResult);
-```
-
-### 필요한 정보
-
-Control Plane 팀에게 다음을 요청:
-1. ✅ **결과 수신 방식** (Redis / HTTP / DynamoDB / SQS)
-2. ✅ **엔드포인트 주소** (HTTP 사용 시)
-3. ✅ **결과 데이터 형식** (JSON 스키마)
+**중요**: B팀이 제공한 Redis 엔드포인트를 사용하며, 포트 6379는 내부적으로만 사용됩니다.
 
 ---
 
 ## 📊 실행 결과 형식
 
-### ExecutionResult JSON
+### ExecutionResult → Redis Publish
+
+Worker가 Redis에 전송하는 JSON 형식 (B팀 Controller가 기대하는 형식):
 
 ```json
 {
   "requestId": "test-req-001",
   "functionId": "hello-python",
+  "status": "SUCCESS",
   "exitCode": 0,
   "stdout": "Hello from NanoGrid Plus!\nResult: 42\n",
   "stderr": "",
   "durationMillis": 232,
-  "success": true,
   "peakMemoryBytes": 6832128,
+  "peakMemoryMB": 6,
   "optimizationTip": "💡 Tip: 현재 메모리 설정(256MB)에 비해 실제 사용량(6MB)이 매우 낮습니다. 메모리를 9MB 정도로 줄이면 비용을 약 96% 절감할 수 있습니다."
 }
 ```
+
+### Redis 채널 형식
+- **Channel**: `result:{requestId}` (예: `result:550e8400-e29b-41d4-a716-446655440000`)
+- **Message**: JSON 문자열 (위 형식)
 
 ---
 
@@ -289,10 +293,11 @@ tail -f app.log
 ```
 NanoGridPlus/
 ├── src/main/java/org/brown/nanogridplus/
-│   ├── config/              # 설정 (AgentProperties, AWS 클라이언트)
+│   ├── config/              # 설정 (AgentProperties, AWS/Redis 클라이언트)
 │   ├── docker/              # Docker 실행 및 Warm Pool 관리
 │   ├── metrics/             # Auto-Tuner 및 CloudWatch
 │   ├── model/               # DTO (TaskMessage, ExecutionResult)
+│   ├── redis/               # Redis Pub/Sub (결과 전송) ⭐ 새로 추가
 │   ├── s3/                  # S3 다운로더
 │   ├── sqs/                 # SQS Poller
 │   ├── web/                 # HealthCheck API
@@ -327,11 +332,13 @@ NanoGridPlus/
 - **AWS SQS** - 작업 큐
 - **AWS S3** - 코드 저장소
 - **AWS CloudWatch** - 메트릭 모니터링
+- **Redis (ElastiCache)** - 결과 전송 (Pub/Sub)
 - **EC2** - 실행 환경
 
 ### Libraries
 - **AWS SDK v2** - AWS 서비스 통합
 - **docker-java** - Docker API 클라이언트
+- **Spring Data Redis** - Redis Pub/Sub
 - **Jackson** - JSON 처리
 
 ---

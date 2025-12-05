@@ -21,6 +21,7 @@ public class AgentProperties {
     private WarmPoolConfig warmPool = new WarmPoolConfig();
     private PollingConfig polling = new PollingConfig();
     private RedisConfig redis = new RedisConfig();
+    private OutputConfig output = new OutputConfig();  // Output Binding 설정 추가
     private String taskBaseDir = "/tmp/task";
 
     @Data
@@ -38,6 +39,7 @@ public class AgentProperties {
     @Data
     public static class S3Config {
         private String codeBucket;
+        private String userDataBucket;  // Output 파일 업로드용 버킷
     }
 
     @Data
@@ -46,6 +48,14 @@ public class AgentProperties {
         private String cppImage = "gcc-base";
         private String workDirRoot = "/workspace-root";
         private long defaultTimeoutMs = 10000;
+        private String outputMountPath = "/output";  // 컨테이너 내부 output 경로
+    }
+
+    @Data
+    public static class OutputConfig {
+        private boolean enabled = true;
+        private String baseDir = "/tmp/output";  // 호스트의 output 디렉터리
+        private String s3Prefix = "outputs";     // S3 키 프리픽스
     }
 
     @Data

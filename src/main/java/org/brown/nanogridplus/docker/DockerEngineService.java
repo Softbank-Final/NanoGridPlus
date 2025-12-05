@@ -11,10 +11,13 @@ import org.brown.nanogridplus.metrics.CloudWatchMetricsPublisher;
 import org.brown.nanogridplus.metrics.ResourceMonitor;
 import org.brown.nanogridplus.model.ExecutionResult;
 import org.brown.nanogridplus.model.TaskMessage;
+import org.brown.nanogridplus.s3.OutputFileUploader;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -39,6 +42,7 @@ public class DockerEngineService implements DockerService {
     private final ResourceMonitor resourceMonitor;
     private final CloudWatchMetricsPublisher metricsPublisher;
     private final AutoTunerService autoTunerService;
+    private final OutputFileUploader outputFileUploader;
 
     @Override
     public ExecutionResult runTask(TaskMessage taskMessage, Path workDir) {
@@ -58,11 +62,15 @@ public class DockerEngineService implements DockerService {
             containerId = warmPoolManager.acquireContainer(runtimeType);
             log.info("Acquired container: {} from Warm Pool for request: {}", containerId, requestId);
 
-            // 2. 컨테이너 내부 작업 디렉터리 경로 설정
+            // 2. Output 디렉터리 생성 (호스트 측)
+            String outputHostPath = createOutputDirectory(requestId);
+            log.debug("Created output directory: {}", outputHostPath);
+
+            // 3. 컨테이너 내부 작업 디렉터리 경로 설정
             String containerWorkDir = agentProperties.getDocker().getWorkDirRoot() + "/" + requestId;
             log.debug("Container work dir: {}", containerWorkDir);
 
-            // 3. 런타임별 실행 커맨드 구성
+            // 4. 런타임별 실행 커맨드 구성
             List<String> cmd = buildCommandForRuntime(taskMessage, containerWorkDir);
             log.info("Executing command in container {}: {}", containerId, cmd);
 
@@ -97,7 +105,19 @@ public class DockerEngineService implements DockerService {
             log.info("Container {} exec finished with exitCode: {} in {}ms",
                     containerId, execResult.exitCode, durationMillis);
 
-            // 6. ExecutionResult 생성
+            // 6. Output Binding: 생성된 파일을 S3에 업로드
+            List<String> outputFiles = List.of();
+            try {
+                log.debug("Uploading output files for request: {}", requestId);
+                outputFiles = outputFileUploader.uploadOutputFiles(requestId, containerId);
+                if (!outputFiles.isEmpty()) {
+                    log.info("📦 [OUTPUT] Uploaded {} file(s) for requestId={}", outputFiles.size(), requestId);
+                }
+            } catch (Exception e) {
+                log.warn("Failed to upload output files for request: {}, continuing", requestId, e);
+            }
+
+            // 7. ExecutionResult 생성
             return ExecutionResult.builder()
                     .requestId(requestId)
                     .functionId(functionId)
@@ -108,6 +128,7 @@ public class DockerEngineService implements DockerService {
                     .success(execResult.exitCode == 0)
                     .peakMemoryBytes(peakMemoryBytes)
                     .optimizationTip(optimizationTip)
+                    .outputFiles(outputFiles)
                     .build();
 
         } catch (Exception e) {
@@ -131,6 +152,7 @@ public class DockerEngineService implements DockerService {
                     .success(false)
                     .peakMemoryBytes(null)
                     .optimizationTip(null)
+                    .outputFiles(List.of())
                     .build();
 
         } finally {
@@ -237,6 +259,29 @@ public class DockerEngineService implements DockerService {
      * Exec 실행 결과를 담는 내부 레코드
      */
     private record ExecResult(int exitCode, String stdout, String stderr) {
+    }
+
+    /**
+     * Output 디렉터리 생성 (호스트 측)
+     *
+     * @param requestId 요청 ID
+     * @return 생성된 디렉터리 절대 경로
+     */
+    private String createOutputDirectory(String requestId) {
+        try {
+            String outputBasePath = agentProperties.getOutput().getBaseDir();
+            Path outputDir = Paths.get(outputBasePath, requestId);
+
+            if (!Files.exists(outputDir)) {
+                Files.createDirectories(outputDir);
+                log.debug("Created output directory: {}", outputDir);
+            }
+
+            return outputDir.toAbsolutePath().toString();
+        } catch (Exception e) {
+            log.error("Failed to create output directory for requestId: {}", requestId, e);
+            throw new RuntimeException("Failed to create output directory", e);
+        }
     }
 }
 

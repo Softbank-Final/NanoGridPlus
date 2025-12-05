@@ -52,6 +52,12 @@ agent:
   # 작업 디렉터리
   taskBaseDir: /tmp/task
 
+  # Output Binding 설정 (파일 자동 업로드)
+  output:
+    enabled: true
+    baseDir: /tmp/output       # 호스트의 output 디렉터리
+    s3Prefix: outputs          # S3에 업로드될 때 경로 (예: outputs/{requestId}/file.png)
+
 # Logging 설정
 logging:
   level:

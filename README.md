@@ -63,6 +63,7 @@ NanoGrid Plus Agent는 **EC2 기반 Serverless Function Worker**로, Control Pla
 | **5~6** | Auto-Tuner (메모리 측정 + CloudWatch) | ✅ |
 | **7~8** | 최종 안정화 (MDC, 예외 처리, HealthCheck) | ✅ |
 | **9** | Redis Pub/Sub 통합 (B팀 Controller 연동) | ✅ |
+| **10** | Output Binding (파일 자동 S3 업로드) | ✅ 🆕 |
 
 ### 📊 성능 지표 (실제 테스트 결과)
 
@@ -140,6 +141,90 @@ tail -f app.log
 ```
 
 자세한 내용: [EC2_DEPLOYMENT.md](./EC2_DEPLOYMENT.md)
+
+---
+
+## 🆕 Output Binding - 파일 자동 업로드
+
+사용자 코드가 파일을 생성하면 자동으로 S3에 업로드되고, 결과에 URL이 포함됩니다.
+
+### 사용 방법
+
+**1. 사용자 코드에서 output 디렉터리에 파일 생성:**
+
+```python
+# main.py
+import os
+import json
+
+# output 디렉터리 생성
+output_dir = os.path.join(os.getcwd(), 'output')
+os.makedirs(output_dir, exist_ok=True)
+
+# 파일 생성
+with open(os.path.join(output_dir, 'result.txt'), 'w') as f:
+    f.write('Execution completed successfully!')
+
+# JSON 파일
+data = {'status': 'success', 'value': 42}
+with open(os.path.join(output_dir, 'data.json'), 'w') as f:
+    json.dump(data, f, indent=2)
+
+print("Output files created")
+```
+
+**2. Worker Agent가 자동 처리:**
+
+- 컨테이너 실행 후 `output` 디렉터리 확인
+- 파일을 S3 버킷 `nanogrid-user-data`에 업로드
+- 경로: `outputs/{requestId}/파일명`
+
+**3. 결과에 URL 포함:**
+
+```json
+{
+  "requestId": "abc-123",
+  "exitCode": 0,
+  "stdout": "Output files created\n",
+  "success": true,
+  "outputFiles": [
+    "https://nanogrid-user-data.s3.ap-northeast-2.amazonaws.com/outputs/abc-123/result.txt",
+    "https://nanogrid-user-data.s3.ap-northeast-2.amazonaws.com/outputs/abc-123/data.json"
+  ]
+}
+```
+
+### 지원 파일 형식
+
+- 이미지: `.jpg`, `.png`, `.gif`
+- 문서: `.pdf`, `.txt`, `.json`, `.csv`
+- 압축: `.zip`, `.tar.gz`
+- 기타: 모든 파일 형식 지원
+
+### 설정
+
+`application-prod.yml`:
+
+```yaml
+agent:
+  s3:
+    userDataBucket: nanogrid-user-data  # Output 파일 업로드용
+
+  output:
+    enabled: true
+    baseDir: /tmp/output
+    s3Prefix: outputs
+```
+
+**IAM 권한 필요:**
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["s3:PutObject", "s3:PutObjectAcl"],
+  "Resource": "arn:aws:s3:::nanogrid-user-data/outputs/*"
+}
+```
 
 ---
 

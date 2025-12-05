@@ -33,8 +33,12 @@ public class DockerStatsResourceMonitor implements ResourceMonitor {
         try {
             dockerClient.statsCmd(containerId)
                     .exec(new ResultCallback.Adapter<Statistics>() {
+                        private volatile boolean closed = false;
+
                         @Override
                         public void onNext(Statistics stats) {
+                            if (closed) return;
+
                             try {
                                 if (stats != null && stats.getMemoryStats() != null) {
                                     Long usage = stats.getMemoryStats().getUsage();
@@ -45,18 +49,28 @@ public class DockerStatsResourceMonitor implements ResourceMonitor {
                                 }
                             } finally {
                                 // 한 번만 읽고 종료
+                                closed = true;
                                 latch.countDown();
                                 try {
                                     close();
                                 } catch (Exception e) {
-                                    log.debug("Error closing stats callback", e);
+                                    // 스트림 종료 에러는 정상 동작 (DEBUG 레벨)
+                                    log.debug("Stats stream closed for container {}: {}", containerId, e.getMessage());
                                 }
                             }
                         }
 
                         @Override
                         public void onError(Throwable throwable) {
-                            log.warn("Error reading stats for container: {}", containerId, throwable);
+                            if (closed) return;
+
+                            // StreamClosedException은 정상 종료 케이스
+                            String errorMsg = throwable.getMessage();
+                            if (errorMsg != null && errorMsg.contains("Stream already closed")) {
+                                log.debug("Stats stream already closed for container {}", containerId);
+                            } else {
+                                log.warn("Error reading stats for container {}: {}", containerId, errorMsg);
+                            }
                             latch.countDown();
                         }
                     });

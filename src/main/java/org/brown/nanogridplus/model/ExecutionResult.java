@@ -63,6 +63,11 @@ public class ExecutionResult {
      */
     private String optimizationTip;
 
+    /**
+     * Output Binding으로 업로드된 파일 URL 리스트
+     */
+    private java.util.List<String> outputFiles;
+
     @Override
     public String toString() {
         return String.format(

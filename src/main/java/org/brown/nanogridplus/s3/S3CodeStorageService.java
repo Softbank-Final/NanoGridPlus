@@ -163,7 +163,9 @@ public class S3CodeStorageService implements CodeStorageService {
         log.info("Successfully extracted {} files from zip for requestId={}", extractedFiles, requestId);
 
         if (extractedFiles == 0) {
-            log.warn("No files extracted from zip file. Empty archive? requestId={}", requestId);
+            log.error("❌ [S3][FAIL] ZIP 파일이 비어있습니다! requestId={}, zipFile={}", requestId, zipFilePath);
+            log.error("   S3 Key: {}", zipFilePath.getFileName());
+            // 실행은 계속 진행 (Docker가 main.py 없음으로 실패할 것임)
         }
     }
 

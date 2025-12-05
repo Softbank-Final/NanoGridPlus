@@ -154,6 +154,32 @@ curl -X POST http://43.202.0.218:8080/run \
 
 ## 🐛 알려진 이슈 및 해결
 
+### ⚠️ 긴급: Redis 타임아웃 문제 (현재 발생 중)
+
+**증상**: Worker는 정상 동작하고 Redis에 결과 전송 성공했지만, Controller는 타임아웃
+
+**Worker 로그 (정상):**
+```
+✅ [REDIS] Result published successfully for requestId=xxx
+[DONE][OK] requestId=xxx
+```
+
+**Controller 응답 (실패):**
+```json
+{"status":"TIMEOUT","message":"Execution timed out"}
+```
+
+**원인**: Controller가 Redis에서 메시지를 수신하지 못함
+
+**해결 방법**: [REDIS_TIMEOUT_TROUBLESHOOTING.md](./REDIS_TIMEOUT_TROUBLESHOOTING.md) 참고
+
+**빠른 체크:**
+1. Controller EC2에서 `redis-cli -h nanogrid-redis... ping` 실행
+2. Redis Security Group에서 Controller → 6379 포트 허용 확인
+3. Controller가 `result:{requestId}` 채널 구독 시작했는지 로그 확인
+
+---
+
 ### 이슈 1: Redis 연결 실패
 **증상**: `Connection refused` 또는 타임아웃  
 **원인**: Worker EC2가 Redis ElastiCache와 다른 VPC/Security Group  
